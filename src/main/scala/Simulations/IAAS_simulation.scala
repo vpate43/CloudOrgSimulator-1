@@ -1,9 +1,9 @@
 //Author: Ronak Trivedi
-//Purpose: Implement IAAS cloud simulation
+//Purpose: Implement
 package Simulations
 
 import HelperUtils.{CreateLogger, ObtainConfigReference}
-import com.typesafe.config.{ConfigFactory, Config}
+import com.typesafe.config.{Config, ConfigFactory}
 import Simulations.BasicCloudSimPlusExample.{config, logger}
 import Simulations.IAAS_simulation.logger
 import org.cloudbus.cloudsim.allocationpolicies.VmAllocationPolicySimple
@@ -19,9 +19,14 @@ import org.cloudbus.cloudsim.resources.{Pe, PeSimple}
 import org.cloudbus.cloudsim.schedulers.cloudlet.CloudletSchedulerSpaceShared
 import org.cloudbus.cloudsim.utilizationmodels.UtilizationModelDynamic
 import org.cloudbus.cloudsim.vms.Vm
+import org.cloudbus.cloudsim.schedulers.*
 import org.cloudbus.cloudsim.vms.VmSimple
 import org.cloudsimplus.builders.tables.CloudletsTableBuilder
 import org.cloudbus.cloudsim.allocationpolicies.{VmAllocationPolicy, VmAllocationPolicyBestFit}
+import org.cloudbus.cloudsim.provisioners.ResourceProvisionerSimple
+import org.cloudbus.cloudsim.schedulers.vm.VmSchedulerSpaceShared
+import org.cloudbus.cloudsim.schedulers.vm.VmSchedulerTimeShared
+import org.cloudbus.cloudsim.allocationpolicies.VmAllocationPolicySimple
 
 import collection.JavaConverters.*
 import scala.collection.mutable.ListBuffer
@@ -35,19 +40,18 @@ object IAAS_simulation:
 
   def Start() =
     val cloudsim = new CloudSim(); //Starting CloudSim
-
+    //Use simple?
     val broker0 = new DatacenterBrokerSimple(cloudsim); //Broker using a simple mapping between cloudlets and Vm's
     logger.info(s"Created one broker: $broker0")
-
     //List of host PE's
     val hostPes = List(new PeSimple(config.getLong("IAAS_config.host.mipsCapacity")), new PeSimple(config.getLong("IAAS_config.host.mipsCapacity")), new PeSimple(config.getLong("IAAS_config.host.mipsCapacity")))
 
     logger.info(s"Created 3 processing elements: $hostPes")
 
     def createDatacenter(): Datacenter = {
-      val hostList : List[Host] = createHosts(); //Occupying list of hosts for the datacenter
+      val hostList : ListBuffer[Host] = createHosts(); //Occupying list of hosts for the datacenter
 
-      val dc0 = new DatacenterSimple(cloudsim, hostList.asJava) //Initialize datacenter
+      val dc0 = new DatacenterSimple(cloudsim, hostList.asJava, VmAllocationPolicySimple()) //Initialize datacenter
       val dc0_path:String = "IAAS_config.dc0."
 
       dc0.getCharacteristics //Configuring the datacenter, not hardcoded
@@ -63,14 +67,17 @@ object IAAS_simulation:
     }
 
     //Initializing list of hosts for the datacenter
-    def createHosts(): List[Host] ={
-      val hostList = List((new HostSimple(config.getLong("IAAS_config.host.RAMInMBs"),config.getLong("IAAS_config.host.StorageInMBs"), config.getLong("IAAS_config.host.BandwidthInMBps"),hostPes.asJava)),
-        new HostSimple(config.getLong("IAAS_config.host.RAMInMBs"),config.getLong("IAAS_config.host.StorageInMBs"), config.getLong("IAAS_config.host.BandwidthInMBps"),hostPes.asJava),
-        new HostSimple(config.getLong("IAAS_config.host.RAMInMBs"),config.getLong("IAAS_config.host.StorageInMBs"), config.getLong("IAAS_config.host.BandwidthInMBps"),hostPes.asJava),
-        new HostSimple(config.getLong("IAAS_config.host.RAMInMBs"),config.getLong("IAAS_config.host.StorageInMBs"), config.getLong("IAAS_config.host.BandwidthInMBps"),hostPes.asJava))
+    def createHosts(): ListBuffer[Host] ={
+      val hostList = new ListBuffer[Host]
+      (1 to 5)foreach (i=>
+        hostList += (new HostSimple(config.getLong("IAAS_config.host.RAMInMBs"),config.getLong("IAAS_config.host.StorageInMBs"), config.getLong("IAAS_config.host.BandwidthInMBps"),hostPes.asJava)
+          .setRamProvisioner(new ResourceProvisionerSimple())
+          .setBwProvisioner(new ResourceProvisionerSimple())
+          .setVmScheduler(new VmSchedulerTimeShared())
+        )
+      )
 
       logger.info(s"Created hosts: $hostList")
-
       return hostList
     }
 
@@ -92,10 +99,11 @@ object IAAS_simulation:
 
     val utilizationModel = new UtilizationModelDynamic(config.getDouble("IAAS_config.utilizationRatio"));
 
-    def createCloudlet(): List[Cloudlet] ={
-      val cloudletList = new CloudletSimple(config.getLong("IAAS_config.cloudlet.size"), config.getInt("IAAS_config.cloudlet.PEs"), utilizationModel) ::
-        new CloudletSimple(config.getLong("IAAS_config.cloudlet.size"), config.getInt("IAAS_config.cloudlet.PEs"), utilizationModel) ::
-        new CloudletSimple(config.getLong("IAAS_config.cloudlet.size"), config.getInt("IAAS_config.cloudlet.PEs"), utilizationModel) :: Nil
+    def createCloudlet(): ListBuffer[Cloudlet] ={
+      val cloudletList = new ListBuffer[Cloudlet]
+      (1 to 9) foreach(i =>
+      cloudletList += CloudletSimple(config.getLong("IAAS_config.cloudlet.size"), config.getInt("IAAS_config.cloudlet.PEs"), utilizationModel)
+        )
 
       logger.info(s"Created a list of cloudlets: $cloudletList")
 
