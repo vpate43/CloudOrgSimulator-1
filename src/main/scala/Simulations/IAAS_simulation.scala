@@ -1,5 +1,8 @@
 //Author: Ronak Trivedi
-//Purpose: Implement
+//Purpose: Implement an IAAS cloud simulation
+//Brokers have the most control here as they are able to specify hosts, core processors, VM's, schedulers, etc
+//  Essentially brokers are able to configure the hardware infrastructure to meet their platform/software needs
+
 package Simulations
 
 import HelperUtils.{CreateLogger, ObtainConfigReference}
@@ -40,9 +43,10 @@ object IAAS_simulation:
 
   def Start() =
     val cloudsim = new CloudSim(); //Starting CloudSim
-    //Use simple?
+
     val broker0 = new DatacenterBrokerSimple(cloudsim); //Broker using a simple mapping between cloudlets and Vm's
     logger.info(s"Created one broker: $broker0")
+
     //List of host PE's
     val hostPes = List(new PeSimple(config.getLong("IAAS_config.host.mipsCapacity")), new PeSimple(config.getLong("IAAS_config.host.mipsCapacity")), new PeSimple(config.getLong("IAAS_config.host.mipsCapacity")))
 
@@ -69,7 +73,7 @@ object IAAS_simulation:
     //Initializing list of hosts for the datacenter
     def createHosts(): ListBuffer[Host] ={
       val hostList = new ListBuffer[Host]
-      (1 to 5)foreach (i=>
+      (1 to config.getInt("IAAS_config.host.Num"))foreach (i=>
         hostList += (new HostSimple(config.getLong("IAAS_config.host.RAMInMBs"),config.getLong("IAAS_config.host.StorageInMBs"), config.getLong("IAAS_config.host.BandwidthInMBps"),hostPes.asJava)
           .setRamProvisioner(new ResourceProvisionerSimple())
           .setBwProvisioner(new ResourceProvisionerSimple())
@@ -84,28 +88,30 @@ object IAAS_simulation:
     //Creating list of VM's for the hosts
     def createVM(): ListBuffer[Vm] ={
       val VMList = new ListBuffer[Vm]
-      (1 to 9) foreach(i =>
+      (1 to config.getInt("IAAS_config.VM.Num")) foreach(i =>
         VMList += new VmSimple(config.getLong("IAAS_config.VM.mipsCapacity"), hostPes.length)
         .setRam(config.getLong("IAAS_config.VM.RAMInMBs"))
         .setBw(config.getLong("IAAS_config.VM.BandwidthInMBps"))
         .setSize(config.getLong("IAAS_config.VM.StorageInMBs"))
-        .setCloudletScheduler(new CloudletSchedulerSpaceShared)
+        .setCloudletScheduler(new CloudletSchedulerSpaceShared())
       )
 
-      logger.info(s"Created VM's: $VMList")
+      logger.info(s"Created VM's: $VMList") //Logging info
 
       return VMList
     }
 
+    //Initializing the utilization model
     val utilizationModel = new UtilizationModelDynamic(config.getDouble("IAAS_config.utilizationRatio"));
 
+    //Creating cloudlets specified in config file
     def createCloudlet(): ListBuffer[Cloudlet] ={
       val cloudletList = new ListBuffer[Cloudlet]
-      (1 to 9) foreach(i =>
+      (1 to config.getInt("IAAS_config.cloudlet.Num")) foreach(i =>
       cloudletList += CloudletSimple(config.getLong("IAAS_config.cloudlet.size"), config.getInt("IAAS_config.cloudlet.PEs"), utilizationModel)
         )
 
-      logger.info(s"Created a list of cloudlets: $cloudletList")
+      logger.info(s"Created a list of cloudlets: $cloudletList") //Logging info
 
       return cloudletList
     }
@@ -127,6 +133,7 @@ object IAAS_simulation:
 
     calculateCost(VM_list)
 
+  //Calculating the cost of operation for the broker
   def calculateCost(vm_list:ListBuffer[Vm]): Unit = {
     val total_cost = new ListBuffer[Float]
     val processing_cost = new ListBuffer[Float]
@@ -141,9 +148,11 @@ object IAAS_simulation:
       storage_cost += (current_cost.getStorageCost().toFloat);
       bandwidth_cost += (current_cost.getBwCost().toFloat);
     }
+
+    //Outputting cost information
     logger.info("*******************************")
     logger.info("*******************************")
-    logger.info("COST REPORT:")
+    logger.info("IAAS-COST REPORT:")
     logger.info("")
     logger.info(s"Total Cost: ${total_cost.sum}")
     logger.info(s"Processing Cost: ${processing_cost.sum}")
