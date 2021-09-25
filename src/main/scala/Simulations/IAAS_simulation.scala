@@ -20,7 +20,7 @@ import org.cloudbus.cloudsim.schedulers.cloudlet.CloudletSchedulerSpaceShared
 import org.cloudbus.cloudsim.utilizationmodels.UtilizationModelDynamic
 import org.cloudbus.cloudsim.vms.Vm
 import org.cloudbus.cloudsim.schedulers.*
-import org.cloudbus.cloudsim.vms.VmSimple
+import org.cloudbus.cloudsim.vms.*
 import org.cloudsimplus.builders.tables.CloudletsTableBuilder
 import org.cloudbus.cloudsim.allocationpolicies.{VmAllocationPolicy, VmAllocationPolicyBestFit}
 import org.cloudbus.cloudsim.provisioners.ResourceProvisionerSimple
@@ -124,3 +124,32 @@ object IAAS_simulation:
 
     //val finishedCloudlets = List(broker0.getCloudletFinishedList())
     new CloudletsTableBuilder(broker0.getCloudletFinishedList()).build();
+
+    calculateCost(VM_list)
+
+  def calculateCost(vm_list:ListBuffer[Vm]): Unit = {
+    val total_cost = new ListBuffer[Float]
+    val processing_cost = new ListBuffer[Float]
+    val memory_cost = new ListBuffer[Float]
+    val storage_cost = new ListBuffer[Float]
+    val bandwidth_cost = new ListBuffer[Float]
+    for (VM <- vm_list) {
+      val current_cost: VmCost = new VmCost(VM)
+      total_cost += (current_cost.getTotalCost().toFloat);
+      processing_cost += (current_cost.getProcessingCost().toFloat);
+      memory_cost += (current_cost.getMemoryCost().toFloat);
+      storage_cost += (current_cost.getStorageCost().toFloat);
+      bandwidth_cost += (current_cost.getBwCost().toFloat);
+    }
+    logger.info("*******************************")
+    logger.info("*******************************")
+    logger.info("COST REPORT:")
+    logger.info("")
+    logger.info(s"Total Cost: ${total_cost.sum}")
+    logger.info(s"Processing Cost: ${processing_cost.sum}")
+    logger.info(s"Memory Cost: ${memory_cost.sum}")
+    logger.info(s"Storage Cost: ${storage_cost.sum}")
+    logger.info(s"Bandwidth Cost: ${bandwidth_cost.sum}")
+    logger.info("*******************************")
+    logger.info("*******************************")
+    }
